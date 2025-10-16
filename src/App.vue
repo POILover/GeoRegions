@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
-import mapSvg from "./assets/counties.svg?raw"
 import { 
   createInitialState, 
   advanceCounty, 
   ensureStats, 
-  persistStats, 
   applyNextCounty,
   pickTestMessage,
   formatDuration,
   COUNTIES,
   COUNTY_SET,
   TOTAL_COUNTIES,
-  type StatsData 
+  groups,
+  type StatsData, 
+  mapSvg,
+  getCountyNameById
 } from './utils'
-
+import { setStats } from './utils/stats.ts'
+console.log(groups)
 // 类型定义
 interface AppState {
   stats: StatsData
@@ -100,7 +102,6 @@ const stats = computed(() => state.value.stats)
 
 const statsEntries = computed(() => {
   return [...COUNTIES]
-    .sort((a, b) => a.localeCompare(b))
     .map((county) => {
       const entry = ensureStats(stats.value, county)
       const attempts = entry.correct + entry.wrong
@@ -187,7 +188,7 @@ const handleCorrect = (county: string) => {
       correct: countyStats.correct + 1,
     },
   }
-  persistStats(updatedStats)
+  setStats(updatedStats)
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   if (isTestMode.value) {
@@ -213,7 +214,7 @@ const handleIncorrect = (county: string, guess: string) => {
       wrong: countyStats.wrong + 1,
     },
   }
-  persistStats(updatedStats)
+  setStats(updatedStats)
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   if (isTestMode.value && testQueueLength.value <= 1) {
@@ -386,7 +387,7 @@ const handleShowOrNext = () => {
       wrong: currentStats.wrong + 1,
     },
   }
-  persistStats(updatedStats)
+  setStats(updatedStats)
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   clearHighlights()
@@ -488,7 +489,7 @@ watch(isStatsOpen, (newVal) => {
     
     <header class="app__header">
       <div class="app__header-top">
-        <h1 class="app__title">Where is {{ currentCounty }}?</h1>
+        <h1 class="app__title">Where is {{ getCountyNameById(currentCounty) }}?</h1>
       </div>
       <div class="app__header-message" aria-live="polite">
         <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ selectedCountyName }}</span>
@@ -587,7 +588,7 @@ watch(isStatsOpen, (newVal) => {
               :key="county"
               class="stats-row"
             >
-              <div class="stats-name">{{ county }}</div>
+              <div class="stats-name">{{ getCountyNameById(county) }}</div>
               <div class="stats-bar" aria-hidden="true">
                 <div
                   :class="['stats-bar-fill', { 'stats-bar-fill--unseen': seen === 0 }]"

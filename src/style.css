@@ -183,29 +183,29 @@ body {
     touch-action: manipulation;
 }
 
-.map svg g#counties path {
+.map svg g#main path {
     cursor: pointer;
     transition: fill 0.2s ease;
 }
 
-.map svg g#counties path {
+.map svg g#main path {
     fill: #cfd8dc;
     stroke: #646464;
 }
 
-.map svg g#counties path:is(:hover, :focus-visible) {
+.map svg g#main path:is(:hover, :focus-visible) {
     fill: #b0bec5;
 }
 
-.map svg g#counties path.is-selected {
+.map svg g#main path.is-selected {
     fill: #90a4ae;
 }
 
-.map svg g#counties path.is-last-clicked {
+.map svg g#main path.is-last-clicked {
     fill: #90a4ae;
 }
 
-.map svg g#counties path.is-revealed {
+.map svg g#main path.is-revealed {
     fill: #e91e63;
 }
 
