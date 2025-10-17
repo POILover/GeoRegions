@@ -3,7 +3,9 @@ import { groups } from "../group";
 import { ensureStats, type StatsData } from "../stats";
 import { useGroup } from "./group";
 import { useStats } from "./stats";
+import { useLanguage } from "./language";
 const { setStats } = useStats();
+const { language } = useLanguage();
 export interface WeightedCounty {
   county: string;
   weight: number;
@@ -11,7 +13,7 @@ export interface WeightedCounty {
 const { currentGroupId } = useGroup();
 export const useDivision = () => {
 
-  const DIVISION_IDS = computed(() => Object.keys(groups.find(group => group.id === currentGroupId.value)?.divisions || {}));
+  const DIVISION_IDS = computed(() => Object.keys(groups[currentGroupId.value]!.divisions));
   const TOTAL_DIVISIONS = computed(() => DIVISION_IDS.value.length);
 
   const weightForCounty = (stats: StatsData, county: string, previous?: string): number => {
@@ -66,5 +68,7 @@ export const useDivision = () => {
     const nextCounty = pickNextCounty(stats, previousCounty);
     return applyNextCounty(stats, nextCounty);
   };
-  return { DIVISION_IDS, TOTAL_DIVISIONS, pickNextCounty, applyNextCounty, advanceDivision };
+  const getDivisionNameById = (divisionId: string) => groups[currentGroupId.value]?.divisions[divisionId]?.[language.value] || divisionId
+
+  return { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, pickNextCounty, applyNextCounty, advanceDivision };
 }

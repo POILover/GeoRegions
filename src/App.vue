@@ -2,9 +2,8 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { formatDuration, shuffle } from './utils/common'
 import { useGroup } from './utils/hooks/group'
-import { useLanguage } from './utils/hooks/language'
 import { useStats } from './utils/hooks/stats'
-import { groups } from './utils/group'
+import { GROUP_IDS } from './utils/group'
 import { useDivision } from './utils/hooks/division'
 import { ensureStats, type StatsData } from './utils/stats'
 import { pickTestMessage } from './utils/test'
@@ -26,12 +25,13 @@ interface RevealedRef {
   originalStyle: string
 }
 
-const { DIVISION_IDS, TOTAL_DIVISIONS, applyNextCounty, advanceDivision } = useDivision()
+const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, applyNextCounty, advanceDivision } = useDivision()
 const { loadStats, setStats } = useStats()
 const createInitialState = (): AppState => {
 	const baseStats = loadStats();
 	return advanceDivision(baseStats, undefined);
 };
+
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
 const feedback = ref("")
@@ -90,8 +90,6 @@ const feedbackNode = computed(() =>
     : null
 )
 
-const mapSvg = computed(() => groups.find(group => group.id === currentGroupId.value)!.svg);
-
 const currentCounty = computed(() => state.value.currentCounty)
 const stats = computed(() => state.value.stats)
 
@@ -110,15 +108,7 @@ const statsEntries = computed(() => {
       }
     })
 })
-const { currentGroupId, setCurrentGroupId } = useGroup()
-const { language, setLanguage } = useLanguage()
-// 工具函数
-const getDivisionNameById = (id: string) => {
-	const divisions = groups.find(group => group.id === currentGroupId.value)!.divisions;
-	return divisions[id]?.[language.value] || id;
-}
-
-
+const { currentSvgMap, currentGroupId, getGroupNameById, setCurrentGroupId } = useGroup()
 
 // 方法定义
 const clearHighlights = () => {
@@ -421,7 +411,7 @@ onMounted(() => {
   const container = svgRef.value
   if (!container) return
   if (container.childElementCount === 0) {
-    container.innerHTML = mapSvg.value
+    container.innerHTML = currentSvgMap.value
   }
 })
 
@@ -484,6 +474,21 @@ watch(isStatsOpen, (newVal) => {
     <header class="app__header">
       <div class="app__header-top">
         <h1 class="app__title">Where is {{ getDivisionNameById(currentCounty) }}?</h1>
+        <div v-if="!isTestMode && false" class="group-selector">
+          <select 
+            :value="currentGroupId" 
+            @change="(e) => setCurrentGroupId((e.target as HTMLSelectElement).value)"
+            class="group-selector__select"
+          >
+            <option 
+              v-for="groupId in GROUP_IDS" 
+              :key="groupId" 
+              :value="groupId"
+            >
+              {{ getGroupNameById(groupId) }}
+            </option>
+          </select>
+        </div>
       </div>
       <div class="app__header-message" aria-live="polite">
         <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ getDivisionNameById(selectedCountyName) }}</span>
