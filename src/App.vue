@@ -1,22 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
-import { 
-  createInitialState, 
-  advanceCounty, 
-  ensureStats, 
-  applyNextCounty,
-  pickTestMessage,
-  formatDuration,
-  COUNTIES,
-  COUNTY_SET,
-  TOTAL_COUNTIES,
-  groups,
-  type StatsData, 
-  mapSvg,
-  getCountyNameById
-} from './utils'
-import { setStats } from './utils/stats.ts'
-console.log(groups)
+import { formatDuration, shuffle } from './utils/common'
+import { loadStats, setStats } from './utils/storage/stats'
+import { useGroup } from './utils/hooks/group'
+import { useLanguage } from './utils/storage/language'
+import { groups } from './utils/group'
+import { useDivision } from './utils/hooks/division'
+import { ensureStats, type StatsData } from './utils/stats'
+import { pickTestMessage } from './utils/test'
 // 类型定义
 interface AppState {
   stats: StatsData
@@ -35,8 +26,12 @@ interface RevealedRef {
   originalStyle: string
 }
 
+const { DIVISION_IDS, TOTAL_DIVISIONS, applyNextCounty, advanceDivision } = useDivision()
 
-
+const createInitialState = (): AppState => {
+	const baseStats = loadStats();
+	return advanceDivision(baseStats, undefined);
+};
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
 const feedback = ref("")
@@ -62,10 +57,10 @@ const testCorrectRef = ref(0)
 
 // 计算属性
 const testQueueLength = computed(() => testQueue.value.length)
-const completedTestCount = computed(() => TOTAL_COUNTIES - testQueueLength.value)
+const completedTestCount = computed(() => TOTAL_DIVISIONS.value - testQueueLength.value)
 const rawTestProgress = computed(() => 
-  (isTestMode.value && TOTAL_COUNTIES > 0)
-    ? Math.round((completedTestCount.value / TOTAL_COUNTIES) * 100)
+  (isTestMode.value && TOTAL_DIVISIONS.value > 0)
+    ? Math.round((completedTestCount.value / TOTAL_DIVISIONS.value) * 100)
     : 0
 )
 const testProgressPercent = computed(() => 
@@ -95,13 +90,13 @@ const feedbackNode = computed(() =>
     : null
 )
 
-
+const mapSvg = computed(() => groups.find(group => group.id === currentGroupId.value)!.svg);
 
 const currentCounty = computed(() => state.value.currentCounty)
 const stats = computed(() => state.value.stats)
 
 const statsEntries = computed(() => {
-  return [...COUNTIES]
+  return [... DIVISION_IDS.value]
     .map((county) => {
       const entry = ensureStats(stats.value, county)
       const attempts = entry.correct + entry.wrong
@@ -115,16 +110,15 @@ const statsEntries = computed(() => {
       }
     })
 })
-
+const { currentGroupId, setCurrentGroupId } = useGroup()
+const { language, setLanguage } = useLanguage()
 // 工具函数
-const shuffle = <T>(array: T[]): T[] => {
-  const copy = [...array]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j]!, copy[i]!]
-  }
-  return copy
+const getDivisionNameById = (id: string) => {
+	const divisions = groups.find(group => group.id === currentGroupId.value)!.divisions;
+	return divisions[id]?.[language.value] || id;
 }
+
+
 
 // 方法定义
 const clearHighlights = () => {
@@ -163,10 +157,10 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
   testStartTime.value = null
   testCorrectRef.value = finalCorrect
   testCorrect.value = finalCorrect
-  const percent = TOTAL_COUNTIES === 0 ? 0 : Math.round((finalCorrect / TOTAL_COUNTIES) * 100)
+  const percent = TOTAL_DIVISIONS.value === 0 ? 0 : Math.round((finalCorrect / TOTAL_DIVISIONS.value) * 100)
   testResult.value = {
     correct: finalCorrect,
-    total: TOTAL_COUNTIES,
+    total: TOTAL_DIVISIONS.value,
     percent,
     durationMs,
   }
@@ -175,7 +169,7 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
   feedbackType.value = null
   selectedCountyName.value = ""
   if (!skipAdvance) {
-    state.value = advanceCounty(state.value.stats, state.value.currentCounty)
+    state.value = advanceDivision(state.value.stats, state.value.currentCounty)
   }
 }
 
@@ -221,27 +215,27 @@ const handleIncorrect = (county: string, guess: string) => {
     finishTest(testCorrectRef.value)
     return
   }
-  feedback.value = `That was ${guess}. Try again.`
+  feedback.value = `That was ${getDivisionNameById(guess)}. Try again.`
   feedbackType.value = "error"
   isRevealed.value = false
 }
 
-const getCountyPath = (county: string): Element | null => {
-  if (!county) return null
+const getDivisionPath = (divisionId: string): Element | null => {
+  if (!divisionId) return null
   const container = svgRef.value
   if (!container) return null
   const escape = typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape
     : (value: string) => value.replace(/["\\]/g, "\\$&")
-  const node = container.querySelector(`[id="${escape(county)}"]`)
+  const node = container.querySelector(`[id="${escape(divisionId)}"]`)
   if (!node) {
-    console.warn(`[map] County path not found for id: ${county}`)
+    console.warn(`[map] Division path not found for id: ${divisionId}`)
   }
   return node
 }
 
 const startTestMode = () => {
-  const order = shuffle(COUNTIES)
+  const order = shuffle(DIVISION_IDS.value)
   if (order.length === 0) return
   clearHighlights()
   if (isStatsOpenRef.value) {
@@ -273,7 +267,7 @@ const cancelTestMode = () => {
   feedback.value = ""
   feedbackType.value = null
   isRevealed.value = false
-  state.value = advanceCounty(state.value.stats, state.value.currentCounty)
+  state.value = advanceDivision(state.value.stats, state.value.currentCounty)
 }
 
 const handleTestButton = () => {
@@ -319,7 +313,7 @@ const handleMapClick = (event: Event) => {
   const path = target.closest("path")
   if (!path) return
   const guess = path.id
-  if (!COUNTY_SET.has(guess)) return
+  if (!DIVISION_IDS.value.includes(guess)) return
   focusActionButton()
   
   if (isRevealed.value) {
@@ -371,7 +365,7 @@ const handleShowOrNext = () => {
       }
       return
     }
-    state.value = advanceCounty(state.value.stats, state.value.currentCounty)
+    state.value = advanceDivision(state.value.stats, state.value.currentCounty)
     isRevealed.value = false
     feedback.value = ""
     feedbackType.value = null
@@ -393,7 +387,7 @@ const handleShowOrNext = () => {
   clearHighlights()
   feedback.value = ""
   feedbackType.value = null
-  const target = getCountyPath(currentCounty.value)
+  const target = getDivisionPath(currentCounty.value)
   if (target) {
     const originalStyle = target.getAttribute("style") ?? ""
     revealedRef.value = { node: target, originalStyle }
@@ -427,7 +421,7 @@ onMounted(() => {
   const container = svgRef.value
   if (!container) return
   if (container.childElementCount === 0) {
-    container.innerHTML = mapSvg
+    container.innerHTML = mapSvg.value
   }
 })
 
@@ -489,7 +483,7 @@ watch(isStatsOpen, (newVal) => {
     
     <header class="app__header">
       <div class="app__header-top">
-        <h1 class="app__title">Where is {{ getCountyNameById(currentCounty) }}?</h1>
+        <h1 class="app__title">Where is {{ getDivisionNameById(currentCounty) }}?</h1>
       </div>
       <div class="app__header-message" aria-live="polite">
         <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ selectedCountyName }}</span>
@@ -588,7 +582,7 @@ watch(isStatsOpen, (newVal) => {
               :key="county"
               class="stats-row"
             >
-              <div class="stats-name">{{ getCountyNameById(county) }}</div>
+              <div class="stats-name">{{ getDivisionNameById(county) }}</div>
               <div class="stats-bar" aria-hidden="true">
                 <div
                   :class="['stats-bar-fill', { 'stats-bar-fill--unseen': seen === 0 }]"

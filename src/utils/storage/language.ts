@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { loadLocalStorage, saveLocalStorage } from "./storage";
 
 export const LANGUAGE_KEY = {
@@ -15,4 +16,13 @@ export const loadLanguage = (): LanguageCode => {
 }
 export const setLanguage = (lang: LanguageCode): void => {
     saveLocalStorage(LANGUAGE_STORAGE_KEY, lang);
+}
+
+export const useLanguage = () => {
+    const language = ref<LanguageCode>(loadLanguage());
+    const setLanguage = (lang: LanguageCode) => {
+        language.value = lang;
+        saveLocalStorage(LANGUAGE_STORAGE_KEY, lang);
+    }
+    return { language, setLanguage };
 }

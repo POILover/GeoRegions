@@ -1,17 +1,13 @@
-import { loadCurrentGroupId } from "./group";
-import { loadLocalStorage, saveLocalStorage } from "./storage";
+export interface CountyStats {
+  seen: number;
+  correct: number;
+  wrong: number;
+}
 
-const STORAGE_KEY_SUFFIX = "geo-regions-stats";
-
-export const loadStatsStorageKey = (): string => {
-    const currentGroupId = loadCurrentGroupId();
-    return `${currentGroupId}-${STORAGE_KEY_SUFFIX}`;
+export interface StatsData {
+  [county: string]: CountyStats;
 }
-export const loadStats = (): any => {
-    const key = loadStatsStorageKey();
-    return loadLocalStorage(key) || {};
-}
-export const setStats = (stats: any): void => {
-    const key = loadStatsStorageKey();
-    saveLocalStorage(key, stats);
-}
+const defaultStats: CountyStats = { seen: 0, correct: 0, wrong: 0 };
+export const ensureStats = (stats: StatsData, county: string): CountyStats => {
+  return stats[county] ?? { ...defaultStats };
+};
