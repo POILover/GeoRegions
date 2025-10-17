@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { formatDuration, shuffle } from './utils/common'
-import { loadStats, setStats } from './utils/storage/stats'
 import { useGroup } from './utils/hooks/group'
-import { useLanguage } from './utils/storage/language'
+import { useLanguage } from './utils/hooks/language'
+import { useStats } from './utils/hooks/stats'
 import { groups } from './utils/group'
 import { useDivision } from './utils/hooks/division'
 import { ensureStats, type StatsData } from './utils/stats'
@@ -27,7 +27,7 @@ interface RevealedRef {
 }
 
 const { DIVISION_IDS, TOTAL_DIVISIONS, applyNextCounty, advanceDivision } = useDivision()
-
+const { loadStats, setStats } = useStats()
 const createInitialState = (): AppState => {
 	const baseStats = loadStats();
 	return advanceDivision(baseStats, undefined);
@@ -486,7 +486,7 @@ watch(isStatsOpen, (newVal) => {
         <h1 class="app__title">Where is {{ getDivisionNameById(currentCounty) }}?</h1>
       </div>
       <div class="app__header-message" aria-live="polite">
-        <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ selectedCountyName }}</span>
+        <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ getDivisionNameById(selectedCountyName) }}</span>
         <p v-else-if="feedbackNode" :class="['app__feedback', feedbackNode.type && `app__feedback--${feedbackNode.type}`]">
           {{ feedbackNode.text }}
         </p>

@@ -1,9 +1,9 @@
 import { computed } from "vue";
 import { groups } from "../group";
 import { ensureStats, type StatsData } from "../stats";
-import { setStats } from "../storage/stats";
 import { useGroup } from "./group";
-
+import { useStats } from "./stats";
+const { setStats } = useStats();
 export interface WeightedCounty {
   county: string;
   weight: number;
@@ -46,7 +46,6 @@ export const useDivision = () => {
         return county;
       }
     }
-    // 确保总是返回一个县
     return weighted[weighted.length - 1]?.county || DIVISION_IDS.value[0]!;
   };
 

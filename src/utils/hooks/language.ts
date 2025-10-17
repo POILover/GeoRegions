@@ -1,5 +1,6 @@
 import { ref } from "vue";
-import { loadLanguage, setLanguage as setLocalLanguage, type LanguageCode } from "../storage/language";
+import { loadLanguage, setLanguage as setLocalLanguage } from "../storage/language";
+import type { LanguageCode } from "../language";
 
 export const useLanguage = () => {
   const language = ref<LanguageCode>(loadLanguage());

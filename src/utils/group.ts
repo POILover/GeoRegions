@@ -1,16 +1,11 @@
-import { LANGUAGE_KEY, type LanguageCode } from "./storage/language";
+import { LANGUAGE_KEY, type LanguageCode } from "./language";
+
+export const DEFAULT_CURRENT_GROUP_ID = "../assets/countries/china.svg"; // 向原作者致敬, 默认国家是英国
 
 type GroupId = string; // e.g. "../assets/countries/uk.svg"
 type GroupNameRecord = Record<LanguageCode, string | null>;
 type DivisionId = string; // e.g. "division_1"
 type DivisionNameRecord = Record<LanguageCode, string | null>;
-interface DivisionGroup {
-  id: GroupId;
-  svg: string;
-  hasIgnore: boolean;
-  divisions: Record<DivisionId, DivisionNameRecord>;
-  name: GroupNameRecord;
-}
 
 const svgAssets = import.meta.glob("../assets/countries/*.svg", {
   query: "?raw",
@@ -23,7 +18,15 @@ const languages = Object.entries(LANGUAGE_KEY).map(([key, v]) => ({
   suffix: v.suffix,
 }));
 
-// 解析单个SVG -> DivisionGroup { id, svg, divisions: { divisionId: { languageCode: divisionName } } }, name: { languageCode: groupName }, hasIgnore }
+
+interface DivisionGroup {
+  id: GroupId;
+  svg: string;
+  hasIgnore: boolean;
+  divisions: Record<DivisionId, DivisionNameRecord>;
+  name: GroupNameRecord;
+}
+// parse svg path and content to DivisionGroup
 function parseSvgToGroup([svgPath, svgContent]: [string, string]): DivisionGroup | null {
   const parser = new DOMParser();
   const svgDoc = parser.parseFromString(svgContent, "image/svg+xml");
@@ -59,7 +62,6 @@ function parseSvgToGroup([svgPath, svgContent]: [string, string]): DivisionGroup
 // 主流程
 export const groups = Object.entries(svgAssets)
   .map(parseSvgToGroup)
-  .filter((g): g is DivisionGroup => !!g);
+  .filter(g => !!g);
 
-// TODO: 这两个常量应该是相应的id, UI层再做映射
-export const COUNTRIES = groups.map((g) => g.id!);
+export const GROUP_IDS = groups.map((g) => g.id!);
