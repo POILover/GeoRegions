@@ -1,6 +1,6 @@
 import { LANGUAGE_KEY, type LanguageCode } from "./language";
 
-export const DEFAULT_CURRENT_GROUP_ID = "../assets/countries/china.svg"; // 向原作者致敬, 默认国家是英国
+export const DEFAULT_CURRENT_GROUP_ID = "../assets/countries/uk.svg"; // 向原作者致敬, 默认国家是英国
 
 type GroupId = string; // e.g. "../assets/countries/uk.svg"
 type GroupNameRecord = Record<LanguageCode, string | null>;
