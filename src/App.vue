@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, reactive } from 'vue'
 import { formatDuration, shuffle } from './utils/common'
 import { useGroup } from './utils/hooks/group'
 import { useStats } from './utils/hooks/stats'
@@ -34,8 +34,7 @@ const createInitialState = (): AppState => {
 
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
-const feedback = ref("")
-const feedbackType = ref<string | null>(null)
+const feedbackMap = reactive<{ text: string, type: 'success' | 'error' | null }>({text: "", type: null})
 const selectedCountyName = ref("")
 const isRevealed = ref(false)
 const isStatsOpen = ref(false)
@@ -79,15 +78,6 @@ const testScoreLabel = computed(() =>
 
 const testDurationLabel = computed(() => 
   testResult.value ? formatDuration(testResult.value.durationMs) : ""
-)
-
-const feedbackNode = computed(() => 
-  feedback.value
-    ? { 
-        text: feedback.value, 
-        type: feedbackType.value 
-      }
-    : null
 )
 
 const currentCounty = computed(() => state.value.currentCounty)
@@ -155,8 +145,8 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
     durationMs,
   }
   isRevealed.value = false
-  feedback.value = ""
-  feedbackType.value = null
+  feedbackMap.text = ""
+  feedbackMap.type = null
   selectedCountyName.value = ""
   if (!skipAdvance) {
     state.value = advanceDivision(state.value.stats, state.value.currentCounty)
@@ -184,8 +174,8 @@ const handleCorrect = (county: string) => {
       return
     }
   }
-  feedback.value = "Correct!"
-  feedbackType.value = "success"
+  feedbackMap.text = "Correct!"
+  feedbackMap.type = "success"
   isRevealed.value = true
 }
 
@@ -205,8 +195,8 @@ const handleIncorrect = (county: string, guess: string) => {
     finishTest(testCorrectRef.value)
     return
   }
-  feedback.value = `That was ${getDivisionNameById(guess)}. Try again.`
-  feedbackType.value = "error"
+  feedbackMap.text = `That was ${getDivisionNameById(guess)}. Try again.`
+  feedbackMap.type = "error"
   isRevealed.value = false
 }
 
@@ -239,8 +229,8 @@ const startTestMode = () => {
   testStartTime.value = Date.now()
   testResult.value = null
   selectedCountyName.value = ""
-  feedback.value = ""
-  feedbackType.value = null
+  feedbackMap.text = ""
+  feedbackMap.type = null
   isRevealed.value = false
   state.value = applyNextCounty(state.value.stats, order[0]!)
 }
@@ -254,8 +244,8 @@ const cancelTestMode = () => {
   testStartTime.value = null
   testResult.value = null
   selectedCountyName.value = ""
-  feedback.value = ""
-  feedbackType.value = null
+  feedbackMap.text = ""
+  feedbackMap.type = null
   isRevealed.value = false
   state.value = advanceDivision(state.value.stats, state.value.currentCounty)
 }
@@ -349,16 +339,16 @@ const handleShowOrNext = () => {
         testQueue.value = remaining
         state.value = applyNextCounty(state.value.stats, nextCounty)
         isRevealed.value = false
-        feedback.value = ""
-        feedbackType.value = null
+        feedbackMap.text = ""
+        feedbackMap.type = null
         selectedCountyName.value = ""
       }
       return
     }
     state.value = advanceDivision(state.value.stats, state.value.currentCounty)
     isRevealed.value = false
-    feedback.value = ""
-    feedbackType.value = null
+    feedbackMap.text = ""
+    feedbackMap.type = null
     selectedCountyName.value = ""
     return
   }
@@ -375,8 +365,8 @@ const handleShowOrNext = () => {
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   clearHighlights()
-  feedback.value = ""
-  feedbackType.value = null
+  feedbackMap.text = ""
+  feedbackMap.type = null
   const target = getDivisionPath(currentCounty.value)
   if (target) {
     const originalStyle = target.getAttribute("style") ?? ""
@@ -427,8 +417,8 @@ watch(isStatsOpen, (newVal) => {
 watch(currentCounty, () => {
   clearHighlights()
   isRevealed.value = false
-  feedback.value = ""
-  feedbackType.value = null
+  feedbackMap.text = ""
+  feedbackMap.type = null
   selectedCountyName.value = ""
 })
 
@@ -492,8 +482,8 @@ watch(isStatsOpen, (newVal) => {
       </div>
       <div class="app__header-message" aria-live="polite">
         <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ getDivisionNameById(selectedCountyName) }}</span>
-        <p v-else-if="feedbackNode" :class="['app__feedback', feedbackNode.type && `app__feedback--${feedbackNode.type}`]">
-          {{ feedbackNode.text }}
+        <p v-else-if="feedbackMap.text" :class="['app__feedback', feedbackMap.type && `app__feedback--${feedbackMap.type}`]">
+          {{ feedbackMap.text }}
         </p>
       </div>
     </header>
