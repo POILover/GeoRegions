@@ -10,7 +10,7 @@ import { pickTestMessage } from './utils/test'
 // 类型定义
 interface AppState {
   stats: StatsData
-  currentCounty: string
+  currentDivision: string
 }
 
 type FeedBack = {
@@ -30,7 +30,7 @@ interface RevealedRef {
   originalStyle: string
 }
 
-const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, applyNextCounty, advanceDivision } = useDivision()
+const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, applyNextDivision, advanceDivision } = useDivision()
 const { loadStats, setStats } = useStats()
 const createInitialState = (): AppState => {
 	const baseStats = loadStats();
@@ -40,7 +40,7 @@ const createInitialState = (): AppState => {
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
 const feedback = reactive<FeedBack>({text: "", type: null})
-const selectedCountyName = ref("")
+const selectedDivision = ref("")
 const isRevealed = ref(false)
 const isStatsOpen = ref(false)
 const isTestMode = ref(false)
@@ -56,7 +56,6 @@ const actionButtonRef = ref<HTMLElement | null>(null)
 // 其他 ref
 const revealedRef = ref<RevealedRef | null>(null)
 const statsHistoryFlag = ref(false)
-const isStatsOpenRef = ref(false)
 
 // 计算属性
 const testQueueLength = computed(() => testQueue.value.length)
@@ -83,17 +82,17 @@ const testDurationLabel = computed(() =>
   testResult.value ? formatDuration(testResult.value.durationMs) : ""
 )
 
-const currentCounty = computed(() => state.value.currentCounty)
+const currentDivision = computed(() => state.value.currentDivision)
 const stats = computed(() => state.value.stats)
 
 const statsEntries = computed(() => {
   return [... DIVISION_IDS.value]
-    .map((county) => {
-      const entry = ensureStats(stats.value, county)
+    .map((division) => {
+      const entry = ensureStats(stats.value, division)
       const attempts = entry.correct + entry.wrong
       const percent = attempts === 0 ? 0 : Math.round((entry.correct / attempts) * 100)
       return {
-        county,
+        division,
         percent,
         attempts,
         correct: entry.correct,
@@ -149,23 +148,23 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
   isRevealed.value = false
   feedback.text = ""
   feedback.type = null
-  selectedCountyName.value = ""
+  selectedDivision.value = ""
   if (!skipAdvance) {
-    state.value = advanceDivision(state.value.stats, state.value.currentCounty)
+    state.value = advanceDivision(state.value.stats, state.value.currentDivision)
   }
 }
 
-const handleCorrect = (county: string) => {
-  const countyStats = ensureStats(state.value.stats, county)
+const handleCorrect = (division: string) => {
+  const divisionStats = ensureStats(state.value.stats, division)
   const updatedStats = {
     ...state.value.stats,
-    [county]: {
-      ...countyStats,
-      correct: countyStats.correct + 1,
+    [division]: {
+      ...divisionStats,
+      correct: divisionStats.correct + 1,
     },
   }
   setStats(updatedStats)
-  state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
+  state.value = { stats: updatedStats, currentDivision: state.value.currentDivision }
   
   if (isTestMode.value) {
     testCorrect.value++
@@ -179,17 +178,17 @@ const handleCorrect = (county: string) => {
   isRevealed.value = true
 }
 
-const handleIncorrect = (county: string, guess: string) => {
-  const countyStats = ensureStats(state.value.stats, county)
+const handleIncorrect = (division: string, guess: string) => {
+  const divisionStats = ensureStats(state.value.stats, division)
   const updatedStats = {
     ...state.value.stats,
-    [county]: {
-      ...countyStats,
-      wrong: countyStats.wrong + 1,
+    [division]: {
+      ...divisionStats,
+      wrong: divisionStats.wrong + 1,
     },
   }
   setStats(updatedStats)
-  state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
+  state.value = { stats: updatedStats, currentDivision: state.value.currentDivision }
   
   if (isTestMode.value && testQueueLength.value <= 1) {
     finishTest(testCorrect.value)
@@ -218,7 +217,7 @@ const startTestMode = () => {
   const order = shuffle(DIVISION_IDS.value)
   if (order.length === 0) return
   clearHighlights()
-  if (isStatsOpenRef.value) {
+  if (isStatsOpen.value) {
     statsHistoryFlag.value = false
     isStatsOpen.value = false
   }
@@ -227,11 +226,11 @@ const startTestMode = () => {
   testCorrect.value = 0
   testStartTime.value = Date.now()
   testResult.value = null
-  selectedCountyName.value = ""
+  selectedDivision.value = ""
   feedback.text = ""
   feedback.type = null
   isRevealed.value = false
-  state.value = applyNextCounty(state.value.stats, order[0]!)
+  state.value = applyNextDivision(state.value.stats, order[0]!)
 }
 
 const cancelTestMode = () => {
@@ -241,11 +240,11 @@ const cancelTestMode = () => {
   testCorrect.value = 0
   testStartTime.value = null
   testResult.value = null
-  selectedCountyName.value = ""
+  selectedDivision.value = ""
   feedback.text = ""
   feedback.type = null
   isRevealed.value = false
-  state.value = advanceDivision(state.value.stats, state.value.currentCounty)
+  state.value = advanceDivision(state.value.stats, state.value.currentDivision)
 }
 
 const handleTestButton = () => {
@@ -261,11 +260,11 @@ const closeTestResult = () => {
   testCorrect.value = 0
   testQueue.value = []
   testStartTime.value = null
-  selectedCountyName.value = ""
+  selectedDivision.value = ""
 }
 
 const openStats = () => {
-  if (isStatsOpenRef.value) return
+  if (isStatsOpen.value) return
   if (typeof window !== "undefined") {
     statsHistoryFlag.value = true
     window.history.pushState({ modal: "stats" }, "")
@@ -277,7 +276,7 @@ const openStats = () => {
 
 const closeStats = (options: { skipHistory?: boolean } = {}) => {
   const { skipHistory = false } = options
-  if (!isStatsOpenRef.value) return
+  if (!isStatsOpen.value) return
   isStatsOpen.value = false
   if (!skipHistory && statsHistoryFlag.value && typeof window !== "undefined") {
     statsHistoryFlag.value = false
@@ -300,10 +299,10 @@ const handleMapClick = (event: Event) => {
         node.classList.remove("is-last-clicked")
       })
     }
-    if (guess === currentCounty.value) {
-      selectedCountyName.value = ""
+    if (guess === currentDivision.value) {
+      selectedDivision.value = ""
     } else {
-      selectedCountyName.value = guess
+      selectedDivision.value = guess
     }
     path.classList.add("is-last-clicked")
     return
@@ -311,20 +310,20 @@ const handleMapClick = (event: Event) => {
   
   clearHighlights()
   path.classList.add("is-last-clicked")
-  if (!currentCounty.value) return
-  if (guess === currentCounty.value) {
-    selectedCountyName.value = ""
+  if (!currentDivision.value) return
+  if (guess === currentDivision.value) {
+    selectedDivision.value = ""
     path.classList.remove("is-last-clicked")
     path.classList.add("is-selected")
-    handleCorrect(currentCounty.value)
+    handleCorrect(currentDivision.value)
   } else {
-    selectedCountyName.value = ""
-    handleIncorrect(currentCounty.value, guess)
+    selectedDivision.value = ""
+    handleIncorrect(currentDivision.value, guess)
   }
 }
 
 const handleShowOrNext = () => {
-  if (!currentCounty.value) return
+  if (!currentDivision.value) return
   if (isRevealed.value) {
     clearHighlights()
     if (isTestMode.value) {
@@ -332,39 +331,39 @@ const handleShowOrNext = () => {
         finishTest(testCorrect.value)
       } else {
         const remaining = testQueue.value.slice(1)
-        const nextCounty = remaining[0]!
+        const nextDivision = remaining[0]!
         testQueue.value = remaining
-        state.value = applyNextCounty(state.value.stats, nextCounty)
+        state.value = applyNextDivision(state.value.stats, nextDivision)
         isRevealed.value = false
         feedback.text = ""
         feedback.type = null
-        selectedCountyName.value = ""
+        selectedDivision.value = ""
       }
       return
     }
-    state.value = advanceDivision(state.value.stats, state.value.currentCounty)
+    state.value = advanceDivision(state.value.stats, state.value.currentDivision)
     isRevealed.value = false
     feedback.text = ""
     feedback.type = null
-    selectedCountyName.value = ""
+    selectedDivision.value = ""
     return
   }
   
-  const currentStats = ensureStats(state.value.stats, currentCounty.value)
+  const currentStats = ensureStats(state.value.stats, currentDivision.value)
   const updatedStats = {
     ...state.value.stats,
-    [currentCounty.value]: {
+    [currentDivision.value]: {
       ...currentStats,
       wrong: currentStats.wrong + 1,
     },
   }
   setStats(updatedStats)
-  state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
+  state.value = { stats: updatedStats, currentDivision: state.value.currentDivision }
   
   clearHighlights()
   feedback.text = ""
   feedback.type = null
-  const target = getDivisionPath(currentCounty.value)
+  const target = getDivisionPath(currentDivision.value)
   if (target) {
     const originalStyle = target.getAttribute("style") ?? ""
     revealedRef.value = { node: target, originalStyle }
@@ -387,8 +386,8 @@ const handleShowOrNext = () => {
       .join(";")
     target.setAttribute("style", nextStyle)
     target.classList.add("is-revealed")
-    console.debug(`[map] Revealed ${currentCounty.value}`)
-    selectedCountyName.value = ""
+    console.debug(`[map] Revealed ${currentDivision.value}`)
+    selectedDivision.value = ""
     isRevealed.value = true
   }
 }
@@ -403,23 +402,19 @@ onMounted(() => {
 })
 
 // 监听器
-watch(isStatsOpen, (newVal) => {
-  isStatsOpenRef.value = newVal
-})
-
-watch(currentCounty, () => {
+watch(currentDivision, () => {
   clearHighlights()
   isRevealed.value = false
   feedback.text = ""
   feedback.type = null
-  selectedCountyName.value = ""
+  selectedDivision.value = ""
 })
 
 // 浏览器历史处理
 onMounted(() => {
   if (typeof window === "undefined") return
   const handlePop = () => {
-    if (isStatsOpenRef.value) {
+    if (isStatsOpen.value) {
       statsHistoryFlag.value = false
       closeStats({ skipHistory: true })
     }
@@ -456,7 +451,7 @@ watch(isStatsOpen, (newVal) => {
     
     <header class="app__header">
       <div class="app__header-top">
-        <h1 class="app__title">Where is {{ getDivisionNameById(currentCounty) }}?</h1>
+        <h1 class="app__title">Where is {{ getDivisionNameById(currentDivision) }}?</h1>
         <div v-if="!isTestMode && false" class="group-selector">
           <select 
             :value="currentGroupId" 
@@ -474,7 +469,7 @@ watch(isStatsOpen, (newVal) => {
         </div>
       </div>
       <div class="app__header-message" aria-live="polite">
-        <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ getDivisionNameById(selectedCountyName) }}</span>
+        <span v-if="isRevealed && selectedDivision" class="app__header-label">{{ getDivisionNameById(selectedDivision) }}</span>
         <p v-else-if="feedback.text" :class="['app__feedback', feedback.type && `app__feedback--${feedback.type}`]">
           {{ feedback.text }}
         </p>
@@ -553,7 +548,7 @@ watch(isStatsOpen, (newVal) => {
     >
       <div class="stats-modal" @click.stop>
         <div class="stats-header">
-          <h2 id="stats-title">County Stats</h2>
+          <h2 id="stats-title">Statistics</h2>
           <button
             type="button"
             class="stats-close"
@@ -566,11 +561,11 @@ watch(isStatsOpen, (newVal) => {
         <div class="stats-body">
           <div class="stats-grid">
             <div
-              v-for="{ county, percent, attempts, correct, seen } in statsEntries"
-              :key="county"
+              v-for="{ division, percent, attempts, correct, seen } in statsEntries"
+              :key="division"
               class="stats-row"
             >
-              <div class="stats-name">{{ getDivisionNameById(county) }}</div>
+              <div class="stats-name">{{ getDivisionNameById(division) }}</div>
               <div class="stats-bar" aria-hidden="true">
                 <div
                   :class="['stats-bar-fill', { 'stats-bar-fill--unseen': seen === 0 }]"

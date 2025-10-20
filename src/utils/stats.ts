@@ -5,11 +5,11 @@ export interface DivisionStats {
 }
 
 export interface StatsData {
-  [county: string]: DivisionStats;
+  [division: string]: DivisionStats;
 }
 
 const defaultStats: DivisionStats = { seen: 0, correct: 0, wrong: 0 };
 
-export const ensureStats = (stats: StatsData, county: string): DivisionStats => {
-  return stats[county] ?? { ...defaultStats };
+export const ensureStats = (stats: StatsData, division: string): DivisionStats => {
+  return stats[division] ?? { ...defaultStats };
 };

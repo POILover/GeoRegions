@@ -6,8 +6,8 @@ import { useStats } from "./stats";
 import { useLanguage } from "./language";
 const { setStats } = useStats();
 const { language } = useLanguage();
-export interface WeightedCounty {
-  county: string;
+export interface WeightedDivision {
+  division: string;
   weight: number;
 }
 const { currentGroupId } = useGroup();
@@ -16,8 +16,8 @@ export const useDivision = () => {
   const DIVISION_IDS = computed(() => Object.keys(groups[currentGroupId.value]!.divisions));
   const TOTAL_DIVISIONS = computed(() => DIVISION_IDS.value.length);
 
-  const weightForCounty = (stats: StatsData, county: string, previous?: string): number => {
-    const entry = ensureStats(stats, county);
+  const weightForDivision = (stats: StatsData, division: string, previous?: string): number => {
+    const entry = ensureStats(stats, division);
     const attempts = entry.correct + entry.wrong;
     const seen = entry.seen;
     if (attempts === 0) {
@@ -29,46 +29,46 @@ export const useDivision = () => {
     if (seen === 0) {
       weight += 0.4;
     }
-    if (previous && county === previous) {
+    if (previous && division === previous) {
       weight *= 0.6;
     }
     return weight;
   };
 
-  const pickNextCounty = (stats: StatsData, previous?: string): string => {
-    const weighted: WeightedCounty[] = DIVISION_IDS.value.map((county) => ({
-      county,
-      weight: weightForCounty(stats, county, previous),
+  const pickNextDivision = (stats: StatsData, previous?: string): string => {
+    const weighted: WeightedDivision[] = DIVISION_IDS.value.map((division) => ({
+      division,
+      weight: weightForDivision(stats, division, previous),
     }));
     const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
     let threshold = Math.random() * totalWeight;
-    for (const { county, weight } of weighted) {
+    for (const { division, weight } of weighted) {
       threshold -= weight;
       if (threshold <= 0) {
-        return county;
+        return division;
       }
     }
-    return weighted[weighted.length - 1]?.county || DIVISION_IDS.value[0]!;
+    return weighted[weighted.length - 1]?.division || DIVISION_IDS.value[0]!;
   };
 
-  const applyNextCounty = (stats: StatsData, nextCounty: string): { stats: StatsData; currentCounty: string } => {
-    const nextEntry = ensureStats(stats, nextCounty);
+  const applyNextDivision = (stats: StatsData, nextDivision: string): { stats: StatsData; currentDivision: string } => {
+    const nextEntry = ensureStats(stats, nextDivision);
     const statsWithSeen = {
       ...stats,
-      [nextCounty]: {
+      [nextDivision]: {
         ...nextEntry,
         seen: nextEntry.seen + 1,
       },
     };
     setStats(statsWithSeen);
-    return { stats: statsWithSeen, currentCounty: nextCounty };
+    return { stats: statsWithSeen, currentDivision: nextDivision };
   };
 
-  const advanceDivision = (stats: StatsData, previousCounty?: string): { stats: StatsData; currentCounty: string } => {
-    const nextCounty = pickNextCounty(stats, previousCounty);
-    return applyNextCounty(stats, nextCounty);
+  const advanceDivision = (stats: StatsData, previousDivision?: string): { stats: StatsData; currentDivision: string } => {
+    const nextDivision = pickNextDivision(stats, previousDivision);
+    return applyNextDivision(stats, nextDivision);
   };
   const getDivisionNameById = (divisionId: string) => groups[currentGroupId.value]?.divisions[divisionId]?.[language.value] || divisionId
 
-  return { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, pickNextCounty, applyNextCounty, advanceDivision };
+  return { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, pickNextDivision, applyNextDivision, advanceDivision };
 }
