@@ -13,6 +13,11 @@ interface AppState {
   currentCounty: string
 }
 
+type FeedBack = {
+  text: string
+  type: 'success' | 'error' | null
+}
+
 interface TestResultType {
   correct: number
   total: number
@@ -34,7 +39,7 @@ const createInitialState = (): AppState => {
 
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
-const feedbackMap = reactive<{ text: string, type: 'success' | 'error' | null }>({text: "", type: null})
+const feedback = reactive<FeedBack>({text: "", type: null})
 const selectedCountyName = ref("")
 const isRevealed = ref(false)
 const isStatsOpen = ref(false)
@@ -52,19 +57,17 @@ const actionButtonRef = ref<HTMLElement | null>(null)
 const revealedRef = ref<RevealedRef | null>(null)
 const statsHistoryFlag = ref(false)
 const isStatsOpenRef = ref(false)
-const testCorrectRef = ref(0)
 
 // 计算属性
 const testQueueLength = computed(() => testQueue.value.length)
-const completedTestCount = computed(() => TOTAL_DIVISIONS.value - testQueueLength.value)
-const rawTestProgress = computed(() => 
-  (isTestMode.value && TOTAL_DIVISIONS.value > 0)
-    ? Math.round((completedTestCount.value / TOTAL_DIVISIONS.value) * 100)
+
+const testProgressPercent = computed(() => {
+  const completedTestCount = TOTAL_DIVISIONS.value - testQueueLength.value
+  const rawTestProgress = (isTestMode.value && TOTAL_DIVISIONS.value > 0)
+    ? Math.round((completedTestCount / TOTAL_DIVISIONS.value) * 100)
     : 0
-)
-const testProgressPercent = computed(() => 
-  Math.min(100, Math.max(0, rawTestProgress.value))
-)
+  return Math.min(100, Math.max(0, rawTestProgress))
+})
 const testButtonLabel = computed(() => isTestMode.value ? "Cancel" : "Test me")
 
 const testMessage = computed(() => {
@@ -135,7 +138,6 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
   isTestMode.value = false
   testQueue.value = []
   testStartTime.value = null
-  testCorrectRef.value = finalCorrect
   testCorrect.value = finalCorrect
   const percent = TOTAL_DIVISIONS.value === 0 ? 0 : Math.round((finalCorrect / TOTAL_DIVISIONS.value) * 100)
   testResult.value = {
@@ -145,8 +147,8 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
     durationMs,
   }
   isRevealed.value = false
-  feedbackMap.text = ""
-  feedbackMap.type = null
+  feedback.text = ""
+  feedback.type = null
   selectedCountyName.value = ""
   if (!skipAdvance) {
     state.value = advanceDivision(state.value.stats, state.value.currentCounty)
@@ -166,16 +168,14 @@ const handleCorrect = (county: string) => {
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   if (isTestMode.value) {
-    const nextCorrect = testCorrectRef.value + 1
-    testCorrectRef.value = nextCorrect
-    testCorrect.value = nextCorrect
+    testCorrect.value++
     if (testQueueLength.value <= 1) {
-      finishTest(nextCorrect)
+      finishTest(testCorrect.value)
       return
     }
   }
-  feedbackMap.text = "Correct!"
-  feedbackMap.type = "success"
+  feedback.text = "Correct!"
+  feedback.type = "success"
   isRevealed.value = true
 }
 
@@ -192,11 +192,11 @@ const handleIncorrect = (county: string, guess: string) => {
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   if (isTestMode.value && testQueueLength.value <= 1) {
-    finishTest(testCorrectRef.value)
+    finishTest(testCorrect.value)
     return
   }
-  feedbackMap.text = `That was ${getDivisionNameById(guess)}. Try again.`
-  feedbackMap.type = "error"
+  feedback.text = `That was ${getDivisionNameById(guess)}. Try again.`
+  feedback.type = "error"
   isRevealed.value = false
 }
 
@@ -224,13 +224,12 @@ const startTestMode = () => {
   }
   isTestMode.value = true
   testQueue.value = order
-  testCorrectRef.value = 0
   testCorrect.value = 0
   testStartTime.value = Date.now()
   testResult.value = null
   selectedCountyName.value = ""
-  feedbackMap.text = ""
-  feedbackMap.type = null
+  feedback.text = ""
+  feedback.type = null
   isRevealed.value = false
   state.value = applyNextCounty(state.value.stats, order[0]!)
 }
@@ -239,13 +238,12 @@ const cancelTestMode = () => {
   clearHighlights()
   isTestMode.value = false
   testQueue.value = []
-  testCorrectRef.value = 0
   testCorrect.value = 0
   testStartTime.value = null
   testResult.value = null
   selectedCountyName.value = ""
-  feedbackMap.text = ""
-  feedbackMap.type = null
+  feedback.text = ""
+  feedback.type = null
   isRevealed.value = false
   state.value = advanceDivision(state.value.stats, state.value.currentCounty)
 }
@@ -260,7 +258,6 @@ const handleTestButton = () => {
 
 const closeTestResult = () => {
   testResult.value = null
-  testCorrectRef.value = 0
   testCorrect.value = 0
   testQueue.value = []
   testStartTime.value = null
@@ -332,23 +329,23 @@ const handleShowOrNext = () => {
     clearHighlights()
     if (isTestMode.value) {
       if (testQueueLength.value <= 1) {
-        finishTest(testCorrectRef.value)
+        finishTest(testCorrect.value)
       } else {
         const remaining = testQueue.value.slice(1)
         const nextCounty = remaining[0]!
         testQueue.value = remaining
         state.value = applyNextCounty(state.value.stats, nextCounty)
         isRevealed.value = false
-        feedbackMap.text = ""
-        feedbackMap.type = null
+        feedback.text = ""
+        feedback.type = null
         selectedCountyName.value = ""
       }
       return
     }
     state.value = advanceDivision(state.value.stats, state.value.currentCounty)
     isRevealed.value = false
-    feedbackMap.text = ""
-    feedbackMap.type = null
+    feedback.text = ""
+    feedback.type = null
     selectedCountyName.value = ""
     return
   }
@@ -365,8 +362,8 @@ const handleShowOrNext = () => {
   state.value = { stats: updatedStats, currentCounty: state.value.currentCounty }
   
   clearHighlights()
-  feedbackMap.text = ""
-  feedbackMap.type = null
+  feedback.text = ""
+  feedback.type = null
   const target = getDivisionPath(currentCounty.value)
   if (target) {
     const originalStyle = target.getAttribute("style") ?? ""
@@ -406,10 +403,6 @@ onMounted(() => {
 })
 
 // 监听器
-watch(testCorrect, (newVal) => {
-  testCorrectRef.value = newVal
-})
-
 watch(isStatsOpen, (newVal) => {
   isStatsOpenRef.value = newVal
 })
@@ -417,8 +410,8 @@ watch(isStatsOpen, (newVal) => {
 watch(currentCounty, () => {
   clearHighlights()
   isRevealed.value = false
-  feedbackMap.text = ""
-  feedbackMap.type = null
+  feedback.text = ""
+  feedback.type = null
   selectedCountyName.value = ""
 })
 
@@ -482,8 +475,8 @@ watch(isStatsOpen, (newVal) => {
       </div>
       <div class="app__header-message" aria-live="polite">
         <span v-if="isRevealed && selectedCountyName" class="app__header-label">{{ getDivisionNameById(selectedCountyName) }}</span>
-        <p v-else-if="feedbackMap.text" :class="['app__feedback', feedbackMap.type && `app__feedback--${feedbackMap.type}`]">
-          {{ feedbackMap.text }}
+        <p v-else-if="feedback.text" :class="['app__feedback', feedback.type && `app__feedback--${feedback.type}`]">
+          {{ feedback.text }}
         </p>
       </div>
     </header>
