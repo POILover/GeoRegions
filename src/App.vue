@@ -124,6 +124,30 @@ const clearHighlights = () => {
   revealedRef.value = null
 }
 
+// 自动居中与规范化 SVG：设置 viewBox 和 preserveAspectRatio
+const normalizeAndCenterSvg = () => {
+  const container = svgRef.value
+  if (!container) return
+  const svg = container.querySelector('svg') as SVGSVGElement | null
+  if (!svg) return
+  const main = svg.querySelector('g#main') as unknown as SVGGraphicsElement | null
+  try {
+    const target = (main ?? (svg as unknown as SVGGraphicsElement))
+    const bbox = target.getBBox()
+    const padding = Math.max(0, Math.min(bbox.width, bbox.height) * 0.02)
+    const x = bbox.x - padding
+    const y = bbox.y - padding
+    const width = bbox.width + padding * 2
+    const height = bbox.height + padding * 2
+    svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`)
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    svg.removeAttribute('width')
+    svg.removeAttribute('height')
+  } catch (e) {
+    console.warn('[map] Failed to center SVG', e)
+  }
+}
+
 const focusActionButton = () => {
   const node = actionButtonRef.value
   if (!node) return
@@ -399,6 +423,8 @@ onMounted(() => {
   if (container.childElementCount === 0) {
     container.innerHTML = currentSvgMap.value
   }
+  // 注入后进行规范化与自动居中
+  normalizeAndCenterSvg()
 })
 
 // 监听器
