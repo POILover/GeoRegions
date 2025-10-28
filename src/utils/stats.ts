@@ -1,3 +1,5 @@
+import type { DivisionId } from "../types";
+
 export interface DivisionStats {
   seen: number;
   correct: number;
@@ -10,6 +12,6 @@ export interface StatsData {
 
 const defaultStats: DivisionStats = { seen: 0, correct: 0, wrong: 0 };
 
-export const ensureStats = (stats: StatsData, division: string): DivisionStats => {
+export const ensureStats = (stats: StatsData, division: DivisionId): DivisionStats => {
   return stats[division] ?? { ...defaultStats };
 };

@@ -1,10 +1,9 @@
+import type { DivisionId, GroupId } from "../types";
 import { LANGUAGE_KEY, type LanguageCode } from "./language";
 
 export const DEFAULT_CURRENT_GROUP_ID = "../assets/countries/uk.svg"; // 向原作者致敬, 默认国家是英国
 // type Brand<K, T> = K & { __brand: T }
-type GroupId = string; // e.g. "../assets/countries/uk.svg"
 type GroupNameRecord = Record<LanguageCode, string | null>;
-type DivisionId = string; // e.g. "division_1"
 type DivisionNameRecord = Record<LanguageCode, string | null>;
 type SvgContent = string;
 
@@ -62,10 +61,11 @@ function parseSvgToGroup(svgContent: string): DivisionGroup | null {
 // 主流程
 const groups: Record<GroupId, DivisionGroup> = {}
 Object.entries(svgAssets).forEach(([path, content]) => {
+  
   const group = parseSvgToGroup(content);
   if (group) {
-    groups[path] = group;
+    groups[path as GroupId] = group;
   }
 });
 export { groups };
-export const GROUP_IDS = Object.keys(groups);
+export const GROUP_IDS = Object.keys(groups) as GroupId[];

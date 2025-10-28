@@ -7,10 +7,12 @@ import { GROUP_IDS } from './utils/group'
 import { useDivision } from './utils/hooks/division'
 import { ensureStats, type StatsData } from './utils/stats'
 import { pickTestMessage } from './utils/test'
+import type { DivisionId, GroupId } from './types'
+import { calculateNextDivision } from './utils/division'
 // 类型定义
 interface AppState {
   stats: StatsData
-  currentDivision: string
+  currentDivision: DivisionId
 }
 
 type FeedBack = {
@@ -30,7 +32,7 @@ interface RevealedRef {
   originalStyle: string
 }
 
-const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById, applyNextDivision, advanceDivision } = useDivision()
+const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById } = useDivision()
 const { loadStats, setStats } = useStats()
 const createInitialState = (): AppState => {
 	const baseStats = loadStats();
@@ -40,11 +42,11 @@ const createInitialState = (): AppState => {
 // 响应式状态变量
 const state = ref<AppState>(createInitialState())
 const feedback = reactive<FeedBack>({text: "", type: null})
-const selectedDivision = ref("")
+const selectedDivision = ref<DivisionId | null>(null)
 const isRevealed = ref(false)
 const isStatsOpen = ref(false)
 const isTestMode = ref(false)
-const testQueue = ref<string[]>([])
+const testQueue = ref<DivisionId[]>([])
 const testCorrect = ref(0)
 const testStartTime = ref<number | null>(null)
 const testResult = ref<TestResultType | null>(null)
@@ -103,6 +105,24 @@ const statsEntries = computed(() => {
 const { currentSvgMap, currentGroupId, getGroupNameById, setCurrentGroupId } = useGroup()
 
 // 方法定义
+const applyNextDivision = (stats: StatsData, nextDivision: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
+  const nextEntry = ensureStats(stats, nextDivision);
+  const statsWithSeen = {
+    ...stats,
+    [nextDivision]: {
+      ...nextEntry,
+      seen: nextEntry.seen + 1,
+    },
+  };
+  setStats(statsWithSeen);
+  return { stats: statsWithSeen, currentDivision: nextDivision };
+};
+
+const advanceDivision = (stats: StatsData, previousDivision?: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
+  const nextDivision = calculateNextDivision(DIVISION_IDS.value, stats, previousDivision);
+  return applyNextDivision(stats, nextDivision);
+};
+
 const clearHighlights = () => {
   const container = svgRef.value
   if (!container) return
@@ -172,13 +192,13 @@ const finishTest = (finalCorrect: number, options: { skipAdvance?: boolean } = {
   isRevealed.value = false
   feedback.text = ""
   feedback.type = null
-  selectedDivision.value = ""
+  selectedDivision.value = null
   if (!skipAdvance) {
     state.value = advanceDivision(state.value.stats, state.value.currentDivision)
   }
 }
 
-const handleCorrect = (division: string) => {
+const handleCorrect = (division: DivisionId) => {
   const divisionStats = ensureStats(state.value.stats, division)
   const updatedStats = {
     ...state.value.stats,
@@ -202,7 +222,7 @@ const handleCorrect = (division: string) => {
   isRevealed.value = true
 }
 
-const handleIncorrect = (division: string, guess: string) => {
+const handleIncorrect = (division: DivisionId, guess: DivisionId) => {
   const divisionStats = ensureStats(state.value.stats, division)
   const updatedStats = {
     ...state.value.stats,
@@ -250,7 +270,7 @@ const startTestMode = () => {
   testCorrect.value = 0
   testStartTime.value = Date.now()
   testResult.value = null
-  selectedDivision.value = ""
+  selectedDivision.value = null
   feedback.text = ""
   feedback.type = null
   isRevealed.value = false
@@ -264,7 +284,7 @@ const cancelTestMode = () => {
   testCorrect.value = 0
   testStartTime.value = null
   testResult.value = null
-  selectedDivision.value = ""
+  selectedDivision.value = null
   feedback.text = ""
   feedback.type = null
   isRevealed.value = false
@@ -284,7 +304,7 @@ const closeTestResult = () => {
   testCorrect.value = 0
   testQueue.value = []
   testStartTime.value = null
-  selectedDivision.value = ""
+  selectedDivision.value = null
 }
 
 const openStats = () => {
@@ -312,7 +332,7 @@ const handleMapClick = (event: Event) => {
   const target = event.target as Element
   const path = target.closest("path")
   if (!path) return
-  const guess = path.id
+  const guess = path.id as DivisionId
   if (!DIVISION_IDS.value.includes(guess)) return
   focusActionButton()
   
@@ -324,7 +344,7 @@ const handleMapClick = (event: Event) => {
       })
     }
     if (guess === currentDivision.value) {
-      selectedDivision.value = ""
+      selectedDivision.value = null
     } else {
       selectedDivision.value = guess
     }
@@ -336,12 +356,12 @@ const handleMapClick = (event: Event) => {
   path.classList.add("is-last-clicked")
   if (!currentDivision.value) return
   if (guess === currentDivision.value) {
-    selectedDivision.value = ""
+    selectedDivision.value = null
     path.classList.remove("is-last-clicked")
     path.classList.add("is-selected")
     handleCorrect(currentDivision.value)
   } else {
-    selectedDivision.value = ""
+    selectedDivision.value = null
     handleIncorrect(currentDivision.value, guess)
   }
 }
@@ -361,7 +381,7 @@ const handleShowOrNext = () => {
         isRevealed.value = false
         feedback.text = ""
         feedback.type = null
-        selectedDivision.value = ""
+        selectedDivision.value = null
       }
       return
     }
@@ -369,7 +389,7 @@ const handleShowOrNext = () => {
     isRevealed.value = false
     feedback.text = ""
     feedback.type = null
-    selectedDivision.value = ""
+    selectedDivision.value = null
     return
   }
   
@@ -411,7 +431,7 @@ const handleShowOrNext = () => {
     target.setAttribute("style", nextStyle)
     target.classList.add("is-revealed")
     console.debug(`[map] Revealed ${currentDivision.value}`)
-    selectedDivision.value = ""
+    selectedDivision.value = null
     isRevealed.value = true
   }
 }
@@ -433,7 +453,7 @@ watch(currentDivision, () => {
   isRevealed.value = false
   feedback.text = ""
   feedback.type = null
-  selectedDivision.value = ""
+  selectedDivision.value = null
 })
 
 // 浏览器历史处理
@@ -481,7 +501,7 @@ watch(isStatsOpen, (newVal) => {
         <div v-if="!isTestMode && false" class="group-selector">
           <select 
             :value="currentGroupId" 
-            @change="(e) => setCurrentGroupId((e.target as HTMLSelectElement).value)"
+            @change="(e) => setCurrentGroupId((e.target as HTMLSelectElement).value as GroupId)"
             class="group-selector__select"
           >
             <option 
