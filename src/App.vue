@@ -32,6 +32,23 @@ interface RevealedRef {
   originalStyle: string
 }
 
+const applyNextDivision = (stats: StatsData, nextDivision: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
+  const nextEntry = ensureStats(stats, nextDivision);
+  const statsWithSeen = {
+    ...stats,
+    [nextDivision]: {
+      ...nextEntry,
+      seen: nextEntry.seen + 1,
+    },
+  };
+  setStats(statsWithSeen);
+  return { stats: statsWithSeen, currentDivision: nextDivision };
+};
+
+const advanceDivision = (stats: StatsData, previousDivision?: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
+  const nextDivision = calculateNextDivision(DIVISION_IDS.value, stats, previousDivision);
+  return applyNextDivision(stats, nextDivision);
+};
 const { DIVISION_IDS, TOTAL_DIVISIONS, getDivisionNameById } = useDivision()
 const { loadStats, setStats } = useStats()
 const createInitialState = (): AppState => {
@@ -105,23 +122,6 @@ const statsEntries = computed(() => {
 const { currentSvgMap, currentGroupId, getGroupNameById, setCurrentGroupId } = useGroup()
 
 // 方法定义
-const applyNextDivision = (stats: StatsData, nextDivision: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
-  const nextEntry = ensureStats(stats, nextDivision);
-  const statsWithSeen = {
-    ...stats,
-    [nextDivision]: {
-      ...nextEntry,
-      seen: nextEntry.seen + 1,
-    },
-  };
-  setStats(statsWithSeen);
-  return { stats: statsWithSeen, currentDivision: nextDivision };
-};
-
-const advanceDivision = (stats: StatsData, previousDivision?: DivisionId): { stats: StatsData; currentDivision: DivisionId } => {
-  const nextDivision = calculateNextDivision(DIVISION_IDS.value, stats, previousDivision);
-  return applyNextDivision(stats, nextDivision);
-};
 
 const clearHighlights = () => {
   const container = svgRef.value
